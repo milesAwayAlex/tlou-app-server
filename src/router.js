@@ -43,35 +43,32 @@ router.post('/display', async (req, res, next) => {
         .lean()
     );
     const sections = await Promise.all(sectionsQuery);
-    // TODO REFACTOR
-    for await (const section of sections) {
-      // get the chapter name for each section
-      const chapter = await Chapter.findOne(
-        { sections: section._id },
-        'name'
-      ).lean();
-      // assign the chapter name
-      section.chapter = chapter.name;
-      // filter the items by types in the request (IDs are used)
-      section.articles = section.articles.filter(article => {
-        return req.body.types.includes(article.type.toString());
-      });
-      // get the type names
-      // queries run in parallel
-      const types = section.articles.map(article =>
-        Type.findById(article.type).lean()
-      );
-      const resTypes = await Promise.all(types);
-      // assign the type name to each item
-      section.articles.forEach(
-        (article, index) => (article.type = resTypes[index].name)
-      );
-    }
+    // get the chapter name for each section
+    const chapQuery = sections.map(s =>
+      Chapter.findOne({ sections: s._id }, 'name').lean()
+    );
+    // filter the items by types in the request
+    sections.forEach(
+      s =>
+        (s.articles = s.articles.filter(a =>
+          req.body.types.includes(a.type.toString())
+        ))
+    );
+    const typesQuery = sections.map(s =>
+      s.articles.map(a => Type.findById(a.type).lean())
+    );
+    // wait for types and chapters
+    const types = await Promise.all(typesQuery.map(s => Promise.all(s)));
+    const chapters = await Promise.all(chapQuery);
+    // assemble the response
+    sections.forEach((e, i) => {
+      e.chapter = chapters[i].name;
+      e.articles.forEach((a, n) => (a.type = types[i][n].name));
+    });
     sections.sort((a, b) => {
       return a.number - b.number;
     });
-    // the end of REFACTOR
-    // send the payload (array of sections with items)
+    // send the payload
     res.json(sections);
   } catch (e) {
     console.error(e);
