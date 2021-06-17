@@ -36,12 +36,15 @@ router.post('/select', async (req, res, next) => {
 // request to display the selected items
 router.post('/display', async (req, res, next) => {
   try {
-    // retrieve the selected sections with all associated items
+    // get the selected sections with all associated items
     const sectionsQuery = req.body.sections.map(section =>
       Section.findById(section)
         .populate({ path: 'articles', sort: { number: 1 }, lean: true })
         .lean()
     );
+    // get the selected types
+    const typesQuery = req.body.types.map(type => Type.findById(type).lean());
+    // await the selected sections
     const sections = await Promise.all(sectionsQuery);
     // get the chapter name for each section
     const chapQuery = sections.map(s =>
@@ -54,20 +57,20 @@ router.post('/display', async (req, res, next) => {
           req.body.types.includes(a.type.toString())
         ))
     );
-    const typesQuery = sections.map(s =>
-      s.articles.map(a => Type.findById(a.type).lean())
-    );
     // wait for types and chapters
-    const types = await Promise.all(typesQuery.map(s => Promise.all(s)));
+    const types = await Promise.all(typesQuery);
     const chapters = await Promise.all(chapQuery);
     // assemble the response
     sections.forEach((e, i) => {
       e.chapter = chapters[i].name;
-      e.articles.forEach((a, n) => (a.type = types[i][n].name));
+      e.articles.forEach(
+        a =>
+          (a.type = types.find(
+            t => a.type.toString() === t._id.toString()
+          ).name)
+      );
     });
-    sections.sort((a, b) => {
-      return a.number - b.number;
-    });
+    sections.sort((a, b) => a.number - b.number);
     // send the payload
     res.json(sections);
   } catch (e) {
