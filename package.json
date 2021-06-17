@@ -1,12 +1,16 @@
 {
-  "name": "tlou-thing-server",
+  "name": "tlou-app-server",
   "version": "1.0.0",
-  "description": "Server side of the TLoU collectible app",
+  "description": "Server side of the TLoU Collectible App",
+  "engines": {
+    "node": "14.x"
+  },
   "main": "app.js",
   "type": "module",
   "scripts": {
     "dev": "nodemon app.js",
-    "test": "echo 'I can not into tests'"
+    "test": "echo 'I can not into tests'",
+    "start": "node app.js"
   },
   "keywords": [
     "collectible",
